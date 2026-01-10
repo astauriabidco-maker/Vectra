@@ -1,0 +1,70 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Organization {
+  id        String   @id @default(uuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  contacts Contact[]
+}
+
+model Contact {
+  id             String   @id @default(uuid())
+  organizationId String
+  attributes     Json?    @default("{}")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization  Organization    @relation(fields: [organizationId], references: [id])
+  identities    ContactIdentity[]
+  conversations Conversation[]
+}
+
+enum IdentityType {
+  WHATSAPP
+  EMAIL
+}
+
+model ContactIdentity {
+  id         String       @id @default(uuid())
+  contactId  String
+  type       IdentityType
+  identifier String
+  isPrimary  Boolean      @default(false)
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  contact Contact @relation(fields: [contactId], references: [id])
+}
+
+model Conversation {
+  id         String   @id @default(uuid())
+  contactId  String
+  status     String   @default("OPEN")
+  aiStatus   String   @default("ON")
+  assigneeId String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  contact  Contact   @relation(fields: [contactId], references: [id])
+  messages Message[]
+}
+
+model Message {
+  id             String   @id @default(uuid())
+  conversationId String
+  senderType     String   // USER, AGENT, SYSTEM, BOT
+  contentText    String?
+  contentPayload Json?
+  createdAt      DateTime @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id])
+}
