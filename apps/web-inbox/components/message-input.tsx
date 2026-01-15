@@ -3,7 +3,8 @@
 import { useState, useTransition } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { sendMessage } from '@/app/actions';
+import { sendMessage } from '@/app/lib/actions';
+import { testAction } from '@/app/lib/test-action';
 import { Send, Loader2 } from 'lucide-react';
 
 interface MessageInputProps {
@@ -20,7 +21,9 @@ export function MessageInput({ conversationId, disabled }: MessageInputProps) {
 
         startTransition(async () => {
             try {
-                await sendMessage(conversationId, text);
+                console.log('Invoking test action...');
+                await testAction('test-string');
+                await sendMessage(String(conversationId), String(text));
                 setText('');
             } catch (error) {
                 console.error('Failed to send message:', error);

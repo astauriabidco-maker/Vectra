@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { Button } from '@/components/ui/button';
-import { toggleAiStatus } from '@/app/actions';
+import { toggleAiStatus } from '@/app/lib/actions';
 import { Bot, BotOff, Loader2 } from 'lucide-react';
 
 interface AiToggleButtonProps {
@@ -18,7 +18,7 @@ export function AiToggleButton({ conversationId, initialStatus }: AiToggleButton
         const nextStatus = status === 'ON' ? 'PAUSED' : 'ON';
         startTransition(async () => {
             try {
-                await toggleAiStatus(conversationId, nextStatus);
+                await toggleAiStatus(String(conversationId), String(nextStatus));
                 setStatus(nextStatus);
             } catch (error) {
                 console.error('Failed to toggle AI status:', error);
