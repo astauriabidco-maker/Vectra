@@ -1,11 +1,11 @@
 import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
-import * as twilio from 'twilio';
+import twilio from 'twilio';
 
 @Injectable()
 export class MessagesService {
-    private twilioClient: twilio.Twilio;
+    private twilioClient: any;
 
     constructor(
         private readonly prisma: PrismaService,
