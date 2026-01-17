@@ -7,6 +7,9 @@ import { AppController } from './app.controller';
 
 import { EventsModule } from './events/events.module';
 import { MessagesModule } from './messages/messages.module';
+import { CustomersModule } from './customers/customers.module';
+import { IntegrationsModule } from './integrations/integrations.module';
+import { AiModule } from './ai/ai.module';
 
 @Module({
     imports: [
@@ -15,7 +18,10 @@ import { MessagesModule } from './messages/messages.module';
         WebhookModule,
         RedisModule,
         EventsModule,
-        MessagesModule
+        MessagesModule,
+        CustomersModule,
+        IntegrationsModule,
+        AiModule,
     ],
     controllers: [AppController],
 })

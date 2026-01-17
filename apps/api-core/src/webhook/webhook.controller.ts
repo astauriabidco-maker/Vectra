@@ -1,12 +1,14 @@
 import { Controller, Post, Body, HttpCode, HttpStatus } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service'; // Corrected import
-import { RedisService } from '../redis/redis.service'; // Added import
+import { PrismaService } from '../prisma/prisma.service';
+import { RedisService } from '../redis/redis.service';
+import { AiService } from '../ai/ai.service';
 
 @Controller('webhooks')
 export class WebhookController {
     constructor(
         private readonly prisma: PrismaService,
-        private readonly redisHelper: RedisService
+        private readonly redisHelper: RedisService,
+        private readonly aiService: AiService,
     ) { }
 
     @Post('whatsapp')
@@ -79,7 +81,34 @@ export class WebhookController {
             });
         }
 
-        // 2. Find or Create Conversation (active)
+        // 2. Find or Create Customer by Phone (Phone-First CRM)
+        const cleanPhone = from.replace('whatsapp:', ''); // Remove WhatsApp prefix if present
+        let customer = await this.prisma.customer.findUnique({
+            where: { phone: cleanPhone },
+        });
+
+        if (!customer) {
+            // Create new Customer with phone as primary identifier
+            customer = await this.prisma.customer.create({
+                data: {
+                    phone: cleanPhone,
+                    name: name !== 'Unknown' ? name : `Visitor ${cleanPhone}`,
+                    // email is optional, will be null for WhatsApp-first customers
+                },
+            });
+            console.log(`✅ Created new Customer: ${customer.id} (${cleanPhone})`);
+        } else {
+            // Update name if we have a better one from WhatsApp profile
+            if (name && name !== 'Unknown' && !customer.name) {
+                await this.prisma.customer.update({
+                    where: { id: customer.id },
+                    data: { name: name },
+                });
+            }
+            console.log(`✅ Found existing Customer: ${customer.id}`);
+        }
+
+        // 3. Find or Create Conversation (active)
         let conversation = await this.prisma.conversation.findFirst({
             where: {
                 contactId: contact.id,
@@ -122,6 +151,13 @@ export class WebhookController {
                 userPhone: from,
             });
             console.log('✅ Job sent to Redis for AI');
+
+            // Trigger AI Copilot suggestion (async, non-blocking)
+            this.aiService.generateSuggestion(conversation.id, message.id)
+                .then(suggestion => {
+                    if (suggestion) console.log('✨ AI suggestion generated');
+                })
+                .catch(err => console.error('AI suggestion error:', err));
         } else {
             console.log(`⚠️ Skipping AI for conversation ${conversation.id} (Status: ${conversation.aiStatus})`);
         }

@@ -1,20 +1,23 @@
-import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
+import { IntegrationsService } from '../integrations/integrations.service';
 import twilio from 'twilio';
 
 @Injectable()
 export class MessagesService {
-    private twilioClient: any;
-
     constructor(
         private readonly prisma: PrismaService,
         private readonly redisService: RedisService,
-    ) {
-        this.twilioClient = twilio(
-            process.env.TWILIO_ACCOUNT_SID,
-            process.env.TWILIO_AUTH_TOKEN,
-        );
+        private readonly integrationsService: IntegrationsService,
+    ) { }
+
+    /**
+     * Get Twilio client with credentials from DB or fallback to env
+     */
+    private async getTwilioClient() {
+        const credentials = await this.integrationsService.getTwilioCredentials();
+        return twilio(credentials.accountSid, credentials.authToken);
     }
 
     async sendMessage(conversationId: string, text: string) {
@@ -55,18 +58,20 @@ export class MessagesService {
             },
         });
 
-        // 3. Send WhatsApp message via Twilio
+        // 3. Send WhatsApp message via Twilio (using DB credentials or env fallback)
         try {
-            await this.twilioClient.messages.create({
-                from: process.env.TWILIO_PHONE_NUMBER,
+            const twilioClient = await this.getTwilioClient();
+            const credentials = await this.integrationsService.getTwilioCredentials();
+
+            await twilioClient.messages.create({
+                from: credentials.phoneNumber,
                 to: to,
                 body: text,
             });
             console.log(`✅ Message sent to ${to} via Twilio`);
         } catch (error) {
             console.error('❌ Twilio send error:', error);
-            // We still saved the message in the DB, but maybe we should mark it as failed? 
-            // For now, let's just log it.
+            // Message is saved in DB, but Twilio send failed
         }
 
         // 4. Update conversation updatedAt

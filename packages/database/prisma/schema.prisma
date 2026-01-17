@@ -59,12 +59,49 @@ model Conversation {
 }
 
 model Message {
-  id             String   @id @default(uuid())
-  conversationId String
-  senderType     String   // USER, AGENT, SYSTEM, BOT
-  contentText    String?
-  contentPayload Json?
-  createdAt      DateTime @default(now())
+  id              String   @id @default(uuid())
+  conversationId  String
+  senderType      String   // USER, AGENT, SYSTEM, BOT
+  contentText     String?
+  contentPayload  Json?
+  suggestedReply  String?  // AI Copilot suggestion
+  createdAt       DateTime @default(now())
 
   conversation Conversation @relation(fields: [conversationId], references: [id])
+}
+
+model Customer {
+  id        String   @id @default(cuid())
+  email     String?  @unique
+  name      String?
+  phone     String   @unique
+  company   String?
+  notes     String?  @db.Text
+  tags      String[] @default([])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tickets Ticket[]
+}
+
+model Ticket {
+  id          String   @id @default(cuid())
+  title       String
+  description String?  @db.Text
+  status      String   @default("OPEN") // OPEN, IN_PROGRESS, RESOLVED, CLOSED
+  priority    String   @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
+  customerId  String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  customer Customer? @relation(fields: [customerId], references: [id])
+}
+
+model Integration {
+  id          String   @id @default(cuid())
+  provider    String   @unique // "twilio", "meta", etc.
+  enabled     Boolean  @default(false)
+  credentials Json     // Encrypted credentials
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }

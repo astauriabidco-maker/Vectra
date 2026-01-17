@@ -1,14 +1,11 @@
 import prisma from '@/lib/db';
 export const dynamic = 'force-dynamic';
 
-import { Card } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Separator } from '@/components/ui/separator';
 import Link from 'next/link';
 import { AiToggleButton } from '@/components/ai-toggle-button';
-import { MessageInput } from '@/components/message-input';
-import { UserButton } from '@clerk/nextjs';
+import { ChatInputWithSuggestion } from '@/components/chat-input-with-suggestion';
 
 export default async function DashboardPage({
     searchParams,
@@ -31,16 +28,25 @@ export default async function DashboardPage({
         ? await prisma.message.findMany({
             where: { conversationId: selectedChatId },
             orderBy: { createdAt: 'asc' },
+            select: {
+                id: true,
+                conversationId: true,
+                senderType: true,
+                contentText: true,
+                contentPayload: true,
+                suggestedReply: true,
+                createdAt: true,
+            },
         })
         : [];
 
     return (
-        <div className="flex h-screen bg-background font-sans antialiased text-foreground">
-            {/* Sidebar - 30% */}
-            <div className="w-[30%] border-r bg-muted/50 flex flex-col">
-                <div className="p-6 border-b bg-background/50 backdrop-blur-sm sticky top-0 z-10 flex items-center justify-between">
-                    <span className="font-bold text-2xl">Vectra Inbox</span>
-                    <UserButton afterSignOutUrl="/" />
+        <div className="flex h-full bg-background font-sans antialiased text-foreground">
+            {/* Conversation List */}
+            <div className="w-80 border-r bg-muted/30 flex flex-col">
+                <div className="p-4 border-b bg-background/50 backdrop-blur-sm">
+                    <h2 className="font-semibold text-lg">Conversations</h2>
+                    <p className="text-xs text-muted-foreground">{conversations.length} conversation(s)</p>
                 </div>
                 <ScrollArea className="flex-1">
                     <div className="flex flex-col p-2 gap-2">
@@ -87,8 +93,8 @@ export default async function DashboardPage({
                 </ScrollArea>
             </div>
 
-            {/* ChatWindow - 70% */}
-            <div className="w-[70%] flex flex-col bg-background relative">
+            {/* ChatWindow */}
+            <div className="flex-1 flex flex-col bg-background relative">
                 {selectedChatId ? (
                     <>
                         {/* Sticky Header */}
@@ -152,7 +158,11 @@ export default async function DashboardPage({
                             </div>
                         </ScrollArea>
 
-                        <MessageInput conversationId={selectedChatId} />
+                        {/* AI Suggestion + Message Input (Client Component) */}
+                        <ChatInputWithSuggestion
+                            conversationId={selectedChatId}
+                            suggestedReply={messages.filter(m => m.senderType === 'USER').pop()?.suggestedReply}
+                        />
                     </>
                 ) : (
                     <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground bg-muted/5 gap-4">
