@@ -15,6 +15,7 @@ export default async function DashboardPage({
     const conversations = await prisma.conversation.findMany({
         include: {
             contact: true,
+            workspace: true,
         },
         orderBy: {
             updatedAt: 'desc',
@@ -83,6 +84,13 @@ export default async function DashboardPage({
                                                     <span className={`inline-block h-2 w-2 rounded-full ${conv.status === 'OPEN' ? 'bg-green-500' : 'bg-slate-400'}`}></span>
                                                     {conv.status}
                                                 </p>
+                                                {conv.workspace && (
+                                                    <div className="mt-1 flex items-center gap-1">
+                                                        <span className="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded flex items-center gap-0.5 border border-gray-200">
+                                                            🏢 {conv.workspace.name}
+                                                        </span>
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                     </div>
@@ -105,9 +113,14 @@ export default async function DashboardPage({
                                         {(currentConversation?.contact.attributes as any)?.name?.charAt(0)}
                                     </AvatarFallback>
                                 </Avatar>
-                                <span className="font-bold text-lg">
+                                <span className="font-bold text-lg mr-3">
                                     {(currentConversation?.contact.attributes as any)?.name}
                                 </span>
+                                {currentConversation?.workspace && (
+                                    <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded border border-gray-200">
+                                        🏢 {currentConversation.workspace.name}
+                                    </span>
+                                )}
                             </div>
 
                             <AiToggleButton

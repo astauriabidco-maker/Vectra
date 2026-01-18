@@ -19,14 +19,14 @@ export class CustomersService {
         return this.prisma.customer.findMany({
             where: { workspaceId },
             orderBy: { createdAt: 'desc' },
-            include: { tickets: true },
+            include: { tickets: true, workspace: true },
         });
     }
 
     async findOne(id: string) {
         const customer = await this.prisma.customer.findUnique({
             where: { id },
-            include: { tickets: true },
+            include: { tickets: true, workspace: true },
         });
 
         if (!customer) {

@@ -144,6 +144,11 @@ export default function CustomersPage() {
                                                     <MessageCircle className="h-3 w-3" /> WhatsApp
                                                 </span>
                                             )}
+                                            {customer.workspace && (
+                                                <span className="text-[10px] text-gray-500 flex items-center gap-1 mt-0.5">
+                                                    🏢 {customer.workspace.name}
+                                                </span>
+                                            )}
                                         </div>
                                     </div>
                                     <div className="col-span-3 flex items-center gap-2 text-muted-foreground">

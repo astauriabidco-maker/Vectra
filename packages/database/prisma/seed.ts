@@ -48,6 +48,7 @@ async function main() {
             identities: {
                 create: [
                     {
+                        workspaceId: workspaceParis.id,
                         type: IdentityType.WHATSAPP,
                         identifier: 'whatsapp:+33612345678',
                         isPrimary: true,

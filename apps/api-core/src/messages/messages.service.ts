@@ -15,8 +15,8 @@ export class MessagesService {
     /**
      * Get Twilio client with credentials from DB or fallback to env
      */
-    private async getTwilioClient() {
-        const credentials = await this.integrationsService.getTwilioCredentials();
+    private async getTwilioClient(workspaceId: string) {
+        const credentials = await this.integrationsService.getTwilioCredentials(workspaceId);
         return twilio(credentials.accountSid, credentials.authToken);
     }
 
@@ -52,6 +52,7 @@ export class MessagesService {
         // 2. Save message as AGENT
         const message = await this.prisma.message.create({
             data: {
+                workspaceId: conversation.workspaceId,
                 conversationId,
                 senderType: 'AGENT',
                 contentText: text,
@@ -60,15 +61,15 @@ export class MessagesService {
 
         // 3. Send WhatsApp message via Twilio (using DB credentials or env fallback)
         try {
-            const twilioClient = await this.getTwilioClient();
-            const credentials = await this.integrationsService.getTwilioCredentials();
+            const credentials = await this.integrationsService.getTwilioCredentials(conversation.workspaceId);
+            const twilioClient = twilio(credentials.accountSid, credentials.authToken);
 
             await twilioClient.messages.create({
                 from: credentials.phoneNumber,
                 to: to,
                 body: text,
             });
-            console.log(`✅ Message sent to ${to} via Twilio`);
+            console.log(`✅ Message sent to ${to} via Twilio workspace ${conversation.workspaceId}`);
         } catch (error) {
             console.error('❌ Twilio send error:', error);
             // Message is saved in DB, but Twilio send failed

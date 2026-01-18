@@ -11,6 +11,10 @@ export interface Customer {
     tags: string[];
     createdAt: string;
     updatedAt: string;
+    workspace?: {
+        id: string;
+        name: string;
+    };
 }
 
 export interface CreateCustomerData {

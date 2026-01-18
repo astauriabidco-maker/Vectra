@@ -40,6 +40,8 @@ model Workspace {
   tickets       Ticket[]
   conversations Conversation[]
   integrations  Integration[]
+  identities    ContactIdentity[]
+  messages      Message[]
 }
 
 // ============================================
@@ -64,17 +66,18 @@ enum IdentityType {
 }
 
 model ContactIdentity {
-  id         String       @id @default(uuid())
-  contactId  String
-  type       IdentityType
-  identifier String
-  isPrimary  Boolean      @default(false)
-  createdAt  DateTime     @default(now())
-  updatedAt  DateTime     @updatedAt
+  id          String       @id @default(uuid())
+  workspaceId String
+  contactId   String
+  type        IdentityType // WHATSAPP, EMAIL, PHONE
+  identifier  String // whatsapp:+1234567, email@example.com
+  isPrimary   Boolean      @default(false)
+  createdAt   DateTime     @default(now())
 
-  contact Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  contact   Contact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
 
-  @@unique([type, identifier]) // Prevent duplicate identities
+  @@unique([workspaceId, type, identifier]) // Prevent duplicate identities
 }
 
 model Conversation {
@@ -94,6 +97,7 @@ model Conversation {
 
 model Message {
   id             String   @id @default(uuid())
+  workspaceId    String
   conversationId String
   senderType     String   // USER, AGENT, SYSTEM, BOT
   contentText    String?
@@ -101,6 +105,7 @@ model Message {
   suggestedReply String?  // AI Copilot suggestion
   createdAt      DateTime @default(now())
 
+  workspace    Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 }
 

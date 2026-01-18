@@ -52,7 +52,6 @@ export class WebhookController {
                 return { status: 'ignored', reason: 'no_workspace' };
             }
             console.warn(`⚠️ Using fallback workspace: ${fallbackWorkspace.name}`);
-            // Continue with fallback
             return this.processMessage(fallbackWorkspace.id, from, text, name, payload);
         }
 
@@ -70,81 +69,80 @@ export class WebhookController {
         name: string,
         payload: any
     ) {
-        // 1. Find or Create Contact by Identity
-        let identity = await this.prisma.contactIdentity.findFirst({
+        const profileName = name;
+        const waId = from.replace('whatsapp:', '');
+        const body = text;
+
+        // 1. Find or Create Contact & Identity (Workspace Scoped)
+        let contact = await this.prisma.contact.findFirst({
             where: {
-                type: 'WHATSAPP',
-                identifier: from,
+                workspaceId: workspaceId,
+                identities: {
+                    some: {
+                        workspaceId: workspaceId,
+                        identifier: from,
+                        type: 'WHATSAPP',
+                    },
+                },
             },
-            include: {
-                contact: true,
-            },
+            include: { identities: true },
         });
 
-        let contact;
-
-        if (identity) {
-            contact = identity.contact;
-            // Update contact attributes (UPSERT behavior)
-            await this.prisma.contact.update({
-                where: { id: contact.id },
-                data: {
-                    attributes: {
-                        ...(contact.attributes as object),
-                        name: name
-                    }
-                }
-            });
-        } else {
-            // Create new Contact and Identity linked to workspace
+        if (!contact) {
+            console.log(`🆕 Creating new Contact for ${from} in workspace ${workspaceId}`);
             contact = await this.prisma.contact.create({
                 data: {
                     workspaceId: workspaceId,
+                    attributes: { name: profileName },
                     identities: {
                         create: {
+                            workspaceId: workspaceId,
                             type: 'WHATSAPP',
                             identifier: from,
                             isPrimary: true,
                         },
                     },
-                    attributes: {
-                        name: name
-                    }
                 },
+                include: { identities: true },
+            });
+        } else {
+            // Update contact attributes
+            await this.prisma.contact.update({
+                where: { id: contact.id },
+                data: {
+                    attributes: {
+                        ...(contact.attributes as object || {}),
+                        name: profileName
+                    }
+                }
             });
         }
 
-        // 2. Find or Create Customer by Phone (Phone-First CRM) - Scoped to Workspace
-        const cleanPhone = from.replace('whatsapp:', '');
+        // 2. Find or Create Customer (Workspace Scoped)
         let customer = await this.prisma.customer.findFirst({
             where: {
                 workspaceId: workspaceId,
-                phone: cleanPhone,
+                phone: waId,
             },
         });
 
         if (!customer) {
-            // Create new Customer linked to workspace
+            console.log(`🆕 Creating new Customer for ${waId} in workspace ${workspaceId}`);
             customer = await this.prisma.customer.create({
                 data: {
                     workspaceId: workspaceId,
-                    phone: cleanPhone,
-                    name: name !== 'Unknown' ? name : `Visitor ${cleanPhone}`,
+                    phone: waId,
+                    name: profileName !== 'Unknown' ? profileName : `Visitor ${waId}`,
                 },
             });
-            console.log(`✅ Created new Customer: ${customer.id} (${cleanPhone}) in Workspace ${workspaceId}`);
-        } else {
-            // Update name if we have a better one from WhatsApp profile
-            if (name && name !== 'Unknown' && !customer.name) {
-                await this.prisma.customer.update({
-                    where: { id: customer.id },
-                    data: { name: name },
-                });
-            }
-            console.log(`✅ Found existing Customer: ${customer.id}`);
+        } else if (profileName && profileName !== 'Unknown' && !customer.name) {
+            await this.prisma.customer.update({
+                where: { id: customer.id },
+                data: { name: profileName },
+            });
         }
 
-        // 3. Find or Create Conversation (active) - Scoped to Workspace
+        // 3. Find or Create Conversation (Workspace Scoped)
         let conversation = await this.prisma.conversation.findFirst({
             where: {
                 workspaceId: workspaceId,
@@ -154,23 +152,26 @@ export class WebhookController {
         });
 
         if (!conversation) {
+            console.log(`🆕 Creating new Conversation for contact ${contact.id}`);
             conversation = await this.prisma.conversation.create({
                 data: {
                     workspaceId: workspaceId,
                     contactId: contact.id,
                     status: 'OPEN',
+                    aiStatus: 'ON',
                 },
             });
         }
 
-        // 4. Create Message & Update Conversation Timestamp
+        // 4. Save Message & Update Conversation (Transaction)
         const [message] = await this.prisma.$transaction([
             this.prisma.message.create({
                 data: {
+                    workspaceId: workspaceId,
                     conversationId: conversation.id,
                     senderType: 'USER',
-                    contentText: text,
-                    contentPayload: payload,
+                    contentText: body,
+                    contentPayload: payload as any,
                 },
             }),
             this.prisma.conversation.update({
@@ -197,20 +198,15 @@ export class WebhookController {
                     if (suggestion) console.log('✨ AI suggestion generated');
                 })
                 .catch(err => console.error('AI suggestion error:', err));
-        } else {
-            console.log(`⚠️ Skipping AI for conversation ${conversation.id} (Status: ${conversation.aiStatus})`);
         }
 
         // 6. Publish Real-Time Event
-        const redisPub = new (require('ioredis'))({ host: 'localhost', port: 6399 });
         console.log('📢 Publishing event to vectra_events...');
-        await redisPub.publish('vectra_events', JSON.stringify({
+        await this.redisHelper.publishEvent('vectra_events', {
             type: 'message_received',
             workspaceId: workspaceId,
             data: message
-        }));
-        redisPub.disconnect();
-        console.log('✅ Event published to vectra_events');
+        });
 
         return { status: 'received', workspaceId };
     }
