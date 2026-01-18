@@ -8,11 +8,15 @@ async function bootstrap() {
     app.use(bodyParser.urlencoded({ extended: true }));
     app.use(bodyParser.json());
 
-    // Allow CORS just in case
-    app.enableCors();
+    // Enhanced CORS for Cloud Deployment
+    app.enableCors({
+        origin: '*', // For now, can be restricted to Vercel URLs later
+        methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+        credentials: true,
+    });
 
-    const port = process.env.PORT || 3000;
+    const port = process.env.PORT || 7070;
     await app.listen(port);
-    console.log(`Server running on http://localhost:${port}`);
+    console.log(`🚀 Vectra Backend running on port ${port}`);
 }
 bootstrap();
